@@ -1,14 +1,10 @@
 # coding=utf-8
 
 import tensorflow as tf
-tf.enable_eager_execution()
+# tf.enable_eager_execution()
 import numpy as np
-
 from diffnet.evaluation.model_evaluation import evaluate
-
-
 from diffnet.data.load_data import num_users, num_items
-
 
 
 def score_func(batch_user_indices, batch_item_indices):

@@ -61,36 +61,48 @@ def mf_score_func(batch_user_indices, batch_item_indices):
     return logits
 
 
+def create_user_item_edges_generator():
+    while True:
+        for step, batch_edges in enumerate(tf.data.Dataset.from_tensor_slices(train_user_item_edges).shuffle(1000000).batch(batch_size)):
+            batch_user_indices = batch_edges[:, 0]
+            batch_item_indices = batch_edges[:, 1]
+            yield batch_user_indices, batch_item_indices
+
+
+def create_user_user_edges_generator():
+    while True:
+        for step, batch_edges in enumerate(tf.data.Dataset.from_tensor_slices(user_user_edges).shuffle(1000000).batch(batch_size)):
+            batch_user_indices_a = batch_edges[:, 0]
+            batch_item_indices_b = batch_edges[:, 1]
+            yield batch_user_indices_a, batch_item_indices_b
+
+
+user_item_edges_generator = create_user_item_edges_generator()
+user_user_edges_generator = create_user_user_edges_generator()
 
 for epoch in range(1000):
 
-    for step, batch_edges in enumerate(tf.data.Dataset.from_tensor_slices(train_user_item_edges).shuffle(1000000).batch(batch_size)):
-        batch_user_indices = batch_edges[:, 0]
-        batch_item_indices = batch_edges[:, 1]
-
-        batch_neg_item_indices = np.random.randint(0, num_items, batch_item_indices.shape)
-
-        # batch_neg_item_indices = []
-        # for user_index in batch_user_indices.numpy():
-        #     train_items = train_user_items_dict[user_index]
-        #     while True:
-        #         neg_item_index = np.random.randint(0, num_items)
-        #         if neg_item_index in train_items:
-        #             continue
-        #         else:
-        #             batch_neg_item_indices.append(neg_item_index)
-        #             break
-        # batch_neg_item_indices = np.array(batch_neg_item_indices)
-
+    for step in tqdm(range(100)):
 
         with tf.GradientTape() as tape:
-            embedded_users = tf.nn.embedding_lookup(user_embeddings, batch_user_indices)
-            embedded_items = tf.nn.embedding_lookup(item_embeddings, batch_item_indices)
-            embedded_neg_items = tf.nn.embedding_lookup(item_embeddings, batch_neg_item_indices)
 
-            pos_logits = forward(embedded_users, embedded_items, perm=False)
-            neg_logits = forward(embedded_users, embedded_neg_items, perm=False)
+            if step % 2 == 1:
+                batch_user_indices, batch_item_indices = next(user_item_edges_generator)
+                batch_neg_item_indices = np.random.randint(0, num_items, batch_item_indices.shape)
 
+                embedded_a = tf.nn.embedding_lookup(user_embeddings, batch_user_indices)
+                embedded_b = tf.nn.embedding_lookup(item_embeddings, batch_item_indices)
+                embedded_neg_b = tf.nn.embedding_lookup(item_embeddings, batch_neg_item_indices)
+            else:
+                batch_user_indices_a, batch_user_indices_b = next(user_user_edges_generator)
+                batch_neg_user_indices_b = np.random.randint(0, num_users, batch_user_indices_b.shape)
+
+                embedded_a = tf.nn.embedding_lookup(user_embeddings, batch_user_indices_a)
+                embedded_b = tf.nn.embedding_lookup(user_embeddings, batch_user_indices_b)
+                embedded_neg_b = tf.nn.embedding_lookup(user_embeddings, batch_neg_user_indices_b)
+
+            pos_logits = forward(embedded_a, embedded_b, perm=False)
+            neg_logits = forward(embedded_a, embedded_neg_b, perm=False)
 
             pos_losses = tf.nn.sigmoid_cross_entropy_with_logits(
                 logits=pos_logits,

@@ -2,7 +2,7 @@
 
 
 import tensorflow as tf
-tf.enable_eager_execution()
+# tf.enable_eager_execution()
 
 from diffnet.data.load_data import *
 from diffnet.evaluation.ncf_measures import find_ndcg
